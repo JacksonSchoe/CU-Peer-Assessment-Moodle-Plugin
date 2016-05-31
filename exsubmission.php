@@ -156,10 +156,10 @@ if ($edit and $canmanage) {
             }
         }
         // save and relink embedded images and save attachments
-        $formdata = file_postupdate_standard_editor($formdata, 'content', $workshop->submission_content_options(), $workshop->context,
-                                                      'mod_workshop', 'submission_content', $example->id);
-        $formdata = file_postupdate_standard_filemanager($formdata, 'attachment', $workshop->submission_attachment_options(), $workshop->context,
-                                                           'mod_workshop', 'submission_attachment', $example->id);
+        $formdata = file_postupdate_standard_editor($formdata, 'content', $workshop->submission_content_options(),
+                                            $workshop->context, 'mod_workshop', 'submission_content', $example->id);
+        $formdata = file_postupdate_standard_filemanager($formdata, 'attachment', $workshop->submission_attachment_options(),
+                                            $workshop->context, 'mod_workshop', 'submission_attachment', $example->id);
         if (empty($formdata->attachment)) {
             // explicit cast to zero integer
             $formdata->attachment = 0;
