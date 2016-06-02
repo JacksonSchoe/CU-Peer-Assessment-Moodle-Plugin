@@ -326,6 +326,36 @@ class workshop_accumulative_strategy implements workshop_strategy {
     }
 
     /**
+     * @see parent::get_assessments_recordset()
+     */
+    public function get_examples_recordset($restrict=null) {
+        global $DB;
+
+        $sql = 'SELECT s.id AS submissionid,
+                       a.id AS assessmentid, a.weight AS assessmentweight, a.reviewerid, a.gradinggrade,
+                       g.dimensionid, g.grade
+                  FROM {workshop_submissions} s
+                  JOIN {workshop_assessments} a ON (a.submissionid = s.id)
+                  JOIN {workshop_grades} g ON (g.assessmentid = a.id AND g.strategy = :strategy)
+                 WHERE s.example=1 AND s.workshopid=:workshopid'; // to be cont.
+        $params = array('workshopid' => $this->workshop->id, 'strategy' => $this->workshop->strategy);
+
+        if (is_null($restrict)) {
+            // update all users - no more conditions
+        } elseif (!empty($restrict)) {
+            list($usql, $uparams) = $DB->get_in_or_equal($restrict, SQL_PARAMS_NAMED);
+            $sql .= " AND a.reviewerid $usql";
+            $params = array_merge($params, $uparams);
+        } else {
+            throw new coding_exception('Empty value is not a valid parameter here');
+        }
+
+        $sql .= ' ORDER BY s.id'; // this is important for bulk processing
+
+        return $DB->get_recordset_sql($sql, $params);
+    }
+
+    /**
      * @see parent::get_dimensions_info()
      */
     public function get_dimensions_info() {
