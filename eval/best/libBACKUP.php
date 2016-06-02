@@ -30,9 +30,6 @@ defined('MOODLE_INTERNAL') || die();
 require_once(dirname(dirname(__FILE__)) . '/lib.php');  // interface definition
 require_once($CFG->libdir . '/gradelib.php');
 
-$scamaz = undefined_global; //Creates an error so that the debug message appears
-echo "<body style='background-color:black;''>";
-
 /**
  * Defines the computation login of the grading evaluation subplugin
  */
@@ -88,11 +85,10 @@ class workshop_best_evaluation extends workshop_evaluation {
         $diminfo = $grader->get_dimensions_info();
 
         // fetch a recordset with all assessments to process
-        $rs         = $grader->get_examples_recordset($restrict);
+        $rs         = $grader->get_assessments_recordset($restrict);
         $batch      = array();    // will contain a set of all assessments of a single submission
         $previous   = null;       // a previous record in the recordset
         foreach ($rs as $current) {
-            echo "<font color='lightgrey'>ID: $current->submissionid</font><br><br>";
             if (is_null($previous)) {
                 // we are processing the very first record in the recordset
                 $previous = $current;
@@ -373,9 +369,6 @@ class workshop_best_evaluation extends workshop_evaluation {
                 $vars[$dimid] = null;
             }
         }
-        echo "<font color='lightgrey'>Variances: ";
-        print_r($vars);
-        echo "</font><br>";
         return $vars;
     }
 
@@ -406,24 +399,15 @@ class workshop_best_evaluation extends workshop_evaluation {
 
             // variations very close to zero are too sensitive to a small change of data values
             $var = max($var, 0.01);
-            echo "<font color='burgundy'>\$var:</font> <font color='orange'>$var</font><br>";
 
-            echo "<font color='burgundy'>agrade:</font> <font color='cyan'>$agrade</font> <font color='burgundy'>rgrade:</font> <font color='cyan'>$rgrade</font><br>";
             if ($agrade != $rgrade) {
-                echo '<font color="lightgrey">GRADE_MATCH STATUS:</font> <font color="green">PASS</font><br>';
                 $absdelta   = abs($agrade - $rgrade);
                 $reldelta   = pow($agrade - $rgrade, 2) / ($settings->comparison * $var);
-                $pow = pow($agrade - $rgrade, 2);
                 $distance  += $absdelta * $reldelta * $weight;
-            }
-            else{
-                echo '<font color="lightgrey">GRADE_MATCH STATUS:</font> <font color="red">FAIL</font><br>';
             }
         }
         if ($n > 0) {
             // average distance across all dimensions
-            $temp = round($distance / $n, 4);
-            echo "<font color='burgundy'>Distance of</font> <font color='orange'>$agrade</font><font color='burgundy'> from </font><font color='orange'>$rgrade</font><font color='burgundy'>:</font> <font color='orange'>$temp</font><br><br>";
             return round($distance / $n, 4);
         } else {
             return null;
