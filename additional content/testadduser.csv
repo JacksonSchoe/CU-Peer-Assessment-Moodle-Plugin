@@ -1,0 +1,12 @@
+username,password,firstname,lastname,email,course1,type1,role1,group1,enrolperiod1,enrolstatus1
+jimtest,Test123%,Jim,Test,empty@mail.com,Test,1,student,,,
+jimtest1,Jimtest1!,Jim1,Test1,empty1@mail.com,Test,1,student,,,
+jimtest2,Jimtest2!,Jim2,Test2,empty2@mail.com,Test,1,student,,,
+jimtest3,Jimtest3!,Jim3,Test3,empty3@mail.com,Test,1,student,,,
+jimtest4,Jimtest4!,Jim4,Test4,empty4@mail.com,Test,1,student,,,
+jimtest5,Jimtest5!,Jim5,Test5,empty5@mail.com,Test,1,student,,,
+jimtest6,Jimtest6!,Jim6,Test6,empty6@mail.com,Test,1,student,,,
+jimtest7,Jimtest7!,Jim7,Test7,empty7@mail.com,Test,1,student,,,
+jimtest8,Jimtest8!,Jim8,Test8,empty8@mail.com,Test,1,student,,,
+jimtest9,Jimtest9!,Jim9,Test9,empty9@mail.com,Test,1,student,,,
+jimtest10,Jimtest10!,Jim10,Test10,empty10@mail.com,Test,1,student,,,
