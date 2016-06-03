@@ -99,7 +99,10 @@ if ($id and $assess and $canassess) {
     $asid = $DB->get_field('workshop_assessments', 'id',
             array('submissionid' => $example->id, 'weight' => 0, 'reviewerid' => $USER->id));
     if (!$asid) {
+        $scamaz = undefined_global; //Creates an error so that the debug message appears
+        echo "achieved<br>";
         $asid = $workshop->add_allocation($example, $USER->id, 0);
+        echo "<h1>asID Returned: <font color='orange'>$asid</font></h1>";
     }
     if ($asid == workshop::ALLOCATION_EXISTS) {
         // the training assessment of the example was not found but the allocation already
@@ -157,9 +160,9 @@ if ($edit and $canmanage) {
         }
         // save and relink embedded images and save attachments
         $formdata = file_postupdate_standard_editor($formdata, 'content', $workshop->submission_content_options(),
-                                            $workshop->context, 'mod_workshop', 'submission_content', $example->id);
+                                        $workshop->context, 'mod_workshop', 'submission_content', $example->id);
         $formdata = file_postupdate_standard_filemanager($formdata, 'attachment', $workshop->submission_attachment_options(),
-                                            $workshop->context, 'mod_workshop', 'submission_attachment', $example->id);
+                                        $workshop->context, 'mod_workshop', 'submission_attachment', $example->id);
         if (empty($formdata->attachment)) {
             // explicit cast to zero integer
             $formdata->attachment = 0;

@@ -2315,7 +2315,7 @@ class workshop {
                   FROM {workshop_assessments} a
             INNER JOIN {workshop_submissions} s ON (a.submissionid = s.id)
              LEFT JOIN {workshop_aggregations} ag ON (ag.userid = a.reviewerid AND ag.workshopid = s.workshopid)
-                 WHERE s.example=0 AND s.workshopid=:workshopid'; // to be cont.
+                 WHERE s.example=1 AND s.workshopid=:workshopid'; // to be cont.
         $params = array('workshopid' => $this->id);
 
         if (is_null($restrict)) {
