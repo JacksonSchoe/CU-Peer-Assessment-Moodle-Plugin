@@ -30,7 +30,7 @@ defined('MOODLE_INTERNAL') || die();
 require_once(dirname(dirname(__FILE__)) . '/lib.php');  // interface definition
 require_once($CFG->libdir . '/gradelib.php');
 
-$scamaz = undefined_global; //Creates an error so that the debug message appears
+//$scamaz = undefined_global; //Creates an error which disables auto-redirects
 //echo "<body style='background-color:black;''>";
 
 /**
@@ -179,9 +179,6 @@ class workshop_best_evaluation extends workshop_evaluation {
 
         // calculate variance of dimension grades
         $variances = $this->weighted_variance($assessments);
-        echo "<font color='lightgrey'>Variances: ";
-        print_r($variances);
-        echo "</font><br>";
         foreach ($variances as $dimid => $variance) {
             $diminfo[$dimid]->variance = $variance;
         }
@@ -216,8 +213,9 @@ class workshop_best_evaluation extends workshop_evaluation {
             if ($gradinggrade > 100) {
                 $gradinggrade = 100;
             }
+            $temp = grade_floatval($gradinggrade);
+            echo "Grading grade: $temp<br>";
             $grades[$asid] = grade_floatval($gradinggrade);
-            echo "Grading grades: $gradinggrade <br>";
         }
 
         // if the new grading grade differs from the one stored in database, update it
@@ -339,7 +337,6 @@ class workshop_best_evaluation extends workshop_evaluation {
     protected function weighted_variance(array $assessments) {
         $first = reset($assessments);
         if (empty($first)) {
-            //echo "NULL";
             return null;
         }
         $dimids = array_keys($first->dimgrades);
@@ -378,9 +375,9 @@ class workshop_best_evaluation extends workshop_evaluation {
                 $vars[$dimid] = null;
             }
         }
-        //echo "<font color='lightgrey'>Variances: ";
-        //print_r($vars);
-        //echo "</font><br>";
+        echo "<font color='lightgrey'>Variances: ";
+        print_r($vars);
+        echo "</font><br>";
         return $vars;
     }
 

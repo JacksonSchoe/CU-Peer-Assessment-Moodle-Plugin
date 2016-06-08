@@ -83,6 +83,10 @@ class workshop_random_allocator_form extends moodleform {
             $mform->setType('excludesamegroup', PARAM_BOOL);
         }
 
+        $mform->addElement('checkbox', 'usegradinggrades', get_string('usegradinggrades', 'workshopallocation_random'));
+        $mform->setDefault('usegradinggrades', 1);
+        $mform->addHelpButton('usegradinggrades', 'usegradinggrades', 'workshopallocation_random');
+
         $mform->addElement('checkbox', 'removecurrent', get_string('removecurrentallocations', 'workshopallocation_random'));
         $mform->setDefault('removecurrent', 0);
 
