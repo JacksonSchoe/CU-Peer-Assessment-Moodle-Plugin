@@ -348,7 +348,7 @@ class workshop_best_evaluation extends workshop_evaluation {
             $sumweight = 0;
             foreach ($asids as $asid) {
                 $x = $assessments[$asid]->dimgrades[$dimid];    // value (data point)
-                $weight = $assessments[$asid]->weight;          // the values' weight
+                $weight = 1; // $assessments[$asid]->weight;          // the values' weight
                 if ($weight == 0) {
                     continue;
                 }
@@ -407,7 +407,7 @@ class workshop_best_evaluation extends workshop_evaluation {
             $n     += $weight;
 
             // variations very close to zero are too sensitive to a small change of data values
-            $var = max($var, 1.1);
+            $var = max($var, 0.01);
             echo "<font color='burgundy'>\$var:</font> <font color='orange'>$var</font><br>";
 
             echo "<font color='burgundy'>agrade:</font> <font color='cyan'>$agrade</font> <font color='burgundy'>rgrade:</font> <font color='cyan'>$rgrade</font><br>";

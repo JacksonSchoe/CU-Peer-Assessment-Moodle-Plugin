@@ -93,6 +93,7 @@ class workshop_random_allocator implements workshop_allocator {
         $reviewers      = $this->workshop->get_potential_reviewers(!$settings->assesswosubmission);
         $reviewers      = $this->workshop->get_grouped($reviewers);
         $assessments    = $this->workshop->get_all_assessments();
+        $gradinggrades  = $this->workshop->get_all_grading_grades();
         $newallocations = array();      // array of array(reviewer => reviewee)
 
         if ($settings->numofreviews) {
@@ -106,7 +107,8 @@ class workshop_random_allocator implements workshop_allocator {
             $options['numofreviews']     = $settings->numofreviews;
             $options['numper']           = $settings->numper;
             $options['excludesamegroup'] = $settings->excludesamegroup;
-            $randomallocations  = $this->random_allocation($authors, $reviewers, $curassessments, $result, $options);
+            $options['usegradinggrades'] = $settings->usegradinggrades;
+            $randomallocations  = $this->random_allocation($authors, $reviewers, $curassessments, $gradinggrades, $result, $options);
             $newallocations     = array_merge($newallocations, $randomallocations);
             $result->log(get_string('numofrandomlyallocatedsubmissions', 'workshopallocation_random', count($randomallocations)));
             unset($randomallocations);
@@ -434,18 +436,66 @@ class workshop_random_allocator implements workshop_allocator {
      * @param array    $authors      structure of grouped authors
      * @param array    $reviewers    structure of grouped reviewers
      * @param array    $assessments  currently assigned assessments to be kept
+     * @param array    $gradinggradesraw structure of grading grades 
      * @param workshop_allocation_result $result allocation result logger
      * @param array    $options      allocation options
      * @return array                 array of (reviewerid => authorid) pairs
      */
-    protected function random_allocation($authors, $reviewers, $assessments, $result, array $options) {
+    protected function random_allocation($authors, $reviewers, $assessments, $gradinggradesraw, $result, array $options) {
         if (empty($authors) || empty($reviewers)) {
             // nothing to be done
             return array();
         }
 
-        $numofreviews = $options['numofreviews'];
-        $numper       = $options['numper'];
+        $numofreviews     = $options['numofreviews'];
+        $numper           = $options['numper'];
+        $usegradinggrades = $options['usegradinggrades'];
+
+        $pattern          = array();
+        $gradinggrades_id = array(array(), array());
+
+        // If assessment allocations should be based on grading grades
+        if ($usegradinggrades) {
+            // Extract the grading grades and attach them to the respective students
+            // The grading grades are summed up and then divided in the end by the number of grades
+            // For $gradinggrades_id, [0] is the total grading grade, and [1] is the number of grades
+            foreach ($gradinggradesraw as $gradinggrades) {
+                foreach ($reviewers[0] as $reviewer) {
+                    if ($reviewer->id == $gradinggrades->reviewerid) {
+                        // If a grade was already added to the array for this id
+                        if (isset($gradinggrades_id[1][$reviewer->id])) {
+                            $gradinggrades_id[0][$reviewer->id] += $gradinggrades->gradinggrade; // Add the grading grade
+                            $gradinggrades_id[1][$reviewer->id] ++; // Increment the grade count
+                        } else { // For the first grade to be added to the array for each id, += can't be used
+                            $gradinggrades_id[0][$reviewer->id] = $gradinggrades->gradinggrade;
+                            $gradinggrades_id[1][$reviewer->id] = 1;
+                        }
+                    }
+                }
+            }
+            foreach ($gradinggrades_id[0] as $gradingkey => $gradingvalue) {
+                // Average the grading grades of one person
+                $gradinggrades_id[0][$gradingkey] /= $gradinggrades_id[1][$gradingkey];
+            }
+            // Sort the grading grades from lowest to highest
+            asort($gradinggrades_id[0]);
+
+            // Determine the pattern for allocating a range of grading grades
+            // This pattern is used by get_element_with_lowest_workload
+            $i = 0;
+            // If it's odd, a 'MID' has to be added to the pattern because
+            // there must always be the same number of HIGH and LOW entries
+            if ($numofreviews % 2 == 1) {
+                $pattern[0] = 'MID';
+                $i++;
+            }
+            for (; $i < $numofreviews; $i++) {
+                // Alternate between adding 'HIGH' and 'LOW' to the array
+                $pattern[$i] = ($i % 2 == 0 ? 'HIGH' : 'LOW');
+            }
+            echo "<BR><BR>PATTERN: <BR>";
+            print_r($pattern);
+        }
 
         if (workshop_random_allocator_setting::NUMPER_SUBMISSION == $numper) {
             // circles are authors, squares are reviewers
@@ -515,8 +565,9 @@ class workshop_random_allocator implements workshop_allocator {
             // or it is not possible to fulfill that requirment
             // during the first iteration, we try to make sure that at least one circlelink exists. during the
             // second iteration, we try to allocate two, etc.
-            for ($requiredreviews = 1; $requiredreviews <= $numofreviews; $requiredreviews++) {
                 $this->shuffle_assoc($circles);
+            for ($requiredreviews = 1; $requiredreviews <= $numofreviews; $requiredreviews++) {
+                echo "<h1><br>REQUIRED: $requiredreviews</h1>";
                 $result->log('iteration ' . $requiredreviews, 'debug');
                 foreach ($circles as $circleid => $circle) {
                     if (VISIBLEGROUPS == $gmode and isset($nogroupcircles[$circleid])) {
@@ -560,7 +611,7 @@ class workshop_random_allocator implements workshop_allocator {
                                 }
                                 $trygroups = array_diff_key($trygroups, $excludegroups);
                             }
-                            $targetgroup = $this->get_element_with_lowest_workload($trygroups);
+                            $targetgroup = $this->get_element_with_lowest_workload($trygroups, $usegradinggrades, $gradinggrades_id[0], $pattern[$requiredreviews-1]);
                         }
                         if ($targetgroup === false) {
                             $keeptrying = false;
@@ -573,7 +624,8 @@ class workshop_random_allocator implements workshop_allocator {
                         // $result->log('individual workloads in this group are ' . json_encode($trysquares), 'debug', 1);
                         unset($trysquares[$circleid]);  // can't allocate to self
                         $trysquares = array_diff_key($trysquares, array_flip($circlelinks[$circleid])); // can't re-allocate the same
-                        $targetsquare = $this->get_element_with_lowest_workload($trysquares);
+                        echo "<BR><BR>Circle: $circleid";
+                        $targetsquare = $this->get_element_with_lowest_workload($trysquares, $usegradinggrades, $gradinggrades_id[0], $pattern[$requiredreviews-1]);
                         if (false === $targetsquare) {
                             $result->log('unable to find an available square. trying another group', 'debug', 1);
                             $failedgroups[] = $targetgroup;
@@ -647,9 +699,12 @@ class workshop_random_allocator implements workshop_allocator {
      * used to select a group or user.
      *
      * @param array $workload [groupid] => (int)workload
+     * @param boolean $usegradinggrades  true if grading grades should be used for allocation
+     * @param array $gradinggrades [id] => (int)gradinggrade
+     * @param string $pattern  indicates whether to fetch a student with a high or low grading grade
      * @return mixed int|bool id of the selected element or false if it is impossible to choose
      */
-    protected function get_element_with_lowest_workload($workload) {
+    protected function get_element_with_lowest_workload($workload, $usegradinggrades, $gradinggrades, $pattern) {
         $precision = 10;
 
         if (empty($workload)) {
@@ -661,6 +716,58 @@ class workshop_random_allocator implements workshop_allocator {
             if (round($val, $precision) == $minload) {
                 $minkeys[$key] = $val;
             }
+        }
+        // If the id with the median grading grade needs to be fetched
+        if ($pattern == 'MID') {
+            // Break the grading grades array into two blocks
+            $gg_chunks = array_chunk($gradinggrades, count($gradinggrades)/2, true);
+            // Reverse the second chunk so that both are now sorted from highest to lowest
+            $gg_chunks[0] = array_reverse($gg_chunks[0], true);
+            echo "<BR>YOLO: <BR>Chunks: ";
+            print_r($gg_chunks);
+            // Alternate fetching ids from each array until an id is found who is a potential reviewer
+            while ($chunk1 = current($gg_chunks[0])) {
+                $chunk2 = current($gg_chunks[1]);
+                $key1 = key($gg_chunks[0]);
+                echo "<br>key1: $key1";
+                foreach ($minkeys as $minkey => $minvalue) {
+                    if ($minkey == $key1) {
+                        return $key1;
+                    }
+                }
+                $key2 = key($gg_chunks[1]);
+                echo "<br>key2: $key2";
+                foreach ($minkeys as $minkey => $minvalue) {
+                    if ($minkey == $key2) {
+                        return $key2;
+                    }
+                }
+                next($gg_chunks[0]);
+                next($gg_chunks[1]);
+            }
+        }
+        // If the id with the highest grading grade needs to be fetched
+        if ($pattern == 'HIGH') {
+            // Flip it so now it's sorted from highest to lowest
+            $gradinggrades = array_reverse($gradinggrades, true);
+        }
+        if ($usegradinggrades) {
+            echo "<BR>MIN_KEYS: ";
+            print_r($minkeys);
+            echo "<BR>GRADING_KEYS: ";
+            print_r($gradinggrades);
+            // Find the first id in $gradinggrades with lowest workload
+            // The first id will have the lowest grading grade (or highest, if it was reversed)
+            foreach ($gradinggrades as $id => $gradinggrade) {
+                foreach ($minkeys as $minkey => $minvalue) {
+                   echo "<br><font color='blue'>ID: $id minkey: $minkey</font>";
+                    if ($minkey == $id) {
+                        echo "<BR>SUCCESS";
+                        return $id;
+                    }
+                }
+            }
+            // If something went wrong and hasn't returned yet, just return a random element
         }
         return array_rand($minkeys);
     }
@@ -717,6 +824,8 @@ class workshop_random_allocator_setting {
     public $numper;
     /** @var bool prevent reviews by peers from the same group */
     public $excludesamegroup;
+    /** @var bool submissions are assigned peers with a range of grading grades instead of at random */
+    public $usegradinggrades;
     /** @var bool remove current allocations */
     public $removecurrent;
     /** @var bool participants can assess without having submitted anything */
@@ -754,7 +863,7 @@ class workshop_random_allocator_setting {
             }
         }
 
-        foreach (array('excludesamegroup', 'removecurrent', 'assesswosubmission', 'addselfassessment') as $k) {
+        foreach (array('excludesamegroup', 'usegradinggrades', 'removecurrent', 'assesswosubmission', 'addselfassessment') as $k) {
             if (isset($data->$k)) {
                 $i->$k = (bool)$data->$k;
             } else {

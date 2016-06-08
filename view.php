@@ -146,6 +146,32 @@ case workshop::PHASE_SUBMISSION:
         print_collapsible_region_end();
     }
 
+    // Copy pasteroni starts here
+    if (has_capability('mod/workshop:viewallassessments', $PAGE->context)) {
+        $perpage = get_user_preferences('workshop_perpage', 10);
+        $groupid = groups_get_activity_group($workshop->cm, true);
+        $data = $workshop->prepare_grading_report_data($USER->id, $groupid, $page, $perpage, $sortby, $sorthow);
+        if ($data) {
+            $showauthornames    = has_capability('mod/workshop:viewauthornames', $workshop->context);
+            $showreviewernames  = has_capability('mod/workshop:viewreviewernames', $workshop->context);
+
+            if (has_capability('mod/workshop:overridegrades', $PAGE->context)) {
+                // Print a drop-down selector to change the current evaluation method.
+                $selector = new single_select($PAGE->url, 'eval', workshop::available_evaluators_list(),
+                    $workshop->evaluation, false, 'evaluationmethodchooser');
+                $selector->set_label(get_string('evaluationmethod', 'mod_workshop'));
+                $selector->set_help_icon('evaluationmethod', 'mod_workshop');
+                $selector->method = 'post';
+                echo $output->render($selector);
+                // load the grading evaluator
+                $evaluator = $workshop->grading_evaluation_instance();
+                $form = $evaluator->get_settings_form(new moodle_url($workshop->aggregate_url(),
+                        compact('sortby', 'sorthow', 'page')));
+                $form->display();
+            }
+        }
+    }
+
     // does the user have to assess examples before submitting their own work?
     $examplesmust = ($workshop->useexamples and $workshop->examplesmode == workshop::EXAMPLES_BEFORE_SUBMISSION);
 
@@ -250,7 +276,7 @@ case workshop::PHASE_SUBMISSION:
             $reportopts->sortby              = $sortby;
             $reportopts->sorthow             = $sorthow;
             $reportopts->showsubmissiongrade = false;
-            $reportopts->showgradinggrade    = false;
+            $reportopts->showgradinggrade    = true;
             $reportopts->workshopphase       = $workshop->phase;
 
             echo $output->render($pagingbar);
@@ -262,128 +288,7 @@ case workshop::PHASE_SUBMISSION:
         }
         print_collapsible_region_end();
     }
-
-
-    // Copy pasteroni starts here
-    if (has_capability('mod/workshop:viewallassessments', $PAGE->context)) {
-        $perpage = get_user_preferences('workshop_perpage', 10);
-        $groupid = groups_get_activity_group($workshop->cm, true);
-        $data = $workshop->prepare_grading_report_data($USER->id, $groupid, $page, $perpage, $sortby, $sorthow);
-        if ($data) {
-            $showauthornames    = has_capability('mod/workshop:viewauthornames', $workshop->context);
-            $showreviewernames  = has_capability('mod/workshop:viewreviewernames', $workshop->context);
-
-            if (has_capability('mod/workshop:overridegrades', $PAGE->context)) {
-                // Print a drop-down selector to change the current evaluation method.
-                $selector = new single_select($PAGE->url, 'eval', workshop::available_evaluators_list(),
-                    $workshop->evaluation, false, 'evaluationmethodchooser');
-                $selector->set_label(get_string('evaluationmethod', 'mod_workshop'));
-                $selector->set_help_icon('evaluationmethod', 'mod_workshop');
-                $selector->method = 'post';
-                echo $output->render($selector);
-                // load the grading evaluator
-                $evaluator = $workshop->grading_evaluation_instance();
-                $form = $evaluator->get_settings_form(new moodle_url($workshop->aggregate_url(),
-                        compact('sortby', 'sorthow', 'page')));
-                $form->display();
-            }
-
-            // prepare paging bar
-            $baseurl = new moodle_url($PAGE->url, array('sortby' => $sortby, 'sorthow' => $sorthow));
-            $pagingbar = new paging_bar($data->totalcount, $page, $perpage, $baseurl, 'page');
-
-            // grading report display options
-            $reportopts                         = new stdclass();
-            $reportopts->showauthornames        = $showauthornames;
-            $reportopts->showreviewernames      = $showreviewernames;
-            $reportopts->sortby                 = $sortby;
-            $reportopts->sorthow                = $sorthow;
-            $reportopts->showsubmissiongrade    = true;
-            $reportopts->showgradinggrade       = true;
-            $reportopts->workshopphase          = $workshop->phase;
-
-            print_collapsible_region_start('', 'workshop-viewlet-gradereport', get_string('gradesreport', 'workshop'));
-            echo $output->box_start('generalbox gradesreport');
-            echo $output->container(groups_print_activity_menu($workshop->cm, $PAGE->url, true), 'groupwidget');
-            echo $output->render($pagingbar);
-            echo $output->render(new workshop_grading_report($data, $reportopts));
-            echo $output->render($pagingbar);
-            echo $output->perpage_selector($perpage);
-            echo $output->box_end();
-            print_collapsible_region_end();
-        }
-    }
-    if (has_capability('mod/workshop:overridegrades', $workshop->context)) {
-        print_collapsible_region_start('', 'workshop-viewlet-cleargrades', get_string('toolbox', 'workshop'), false, true);
-        echo $output->box_start('generalbox toolbox');
-
-        // Clear aggregated grades
-        $url = new moodle_url($workshop->toolbox_url('clearaggregatedgrades'));
-        $btn = new single_button($url, get_string('clearaggregatedgrades', 'workshop'), 'post');
-        $btn->add_confirm_action(get_string('clearaggregatedgradesconfirm', 'workshop'));
-        echo $output->container_start('toolboxaction');
-        echo $output->render($btn);
-        echo $output->help_icon('clearaggregatedgrades', 'workshop');
-        echo $output->container_end();
-        // Clear assessments
-        $url = new moodle_url($workshop->toolbox_url('clearassessments'));
-        $btn = new single_button($url, get_string('clearassessments', 'workshop'), 'post');
-        $btn->add_confirm_action(get_string('clearassessmentsconfirm', 'workshop'));
-        echo $output->container_start('toolboxaction');
-        echo $output->render($btn);
-        echo $output->help_icon('clearassessments', 'workshop');
-        echo html_writer::empty_tag('img', array('src' => $output->pix_url('i/risk_dataloss'),
-                                                 'title' => get_string('riskdatalossshort', 'admin'),
-                                                 'alt' => get_string('riskdatalossshort', 'admin'),
-                                                 'class' => 'workshop-risk-dataloss'));
-        echo $output->container_end();
-
-        echo $output->box_end();
-        print_collapsible_region_end();
-    }
-    if (has_capability('mod/workshop:submit', $PAGE->context)) {
-        print_collapsible_region_start('', 'workshop-viewlet-ownsubmission', get_string('yoursubmission', 'workshop'));
-        echo $output->box_start('generalbox ownsubmission');
-        if ($submission = $workshop->get_submission_by_author($USER->id)) {
-            echo $output->render($workshop->prepare_submission_summary($submission, true));
-        } else {
-            echo $output->container(get_string('noyoursubmission', 'workshop'));
-        }
-        echo $output->box_end();
-        print_collapsible_region_end();
-    }
-    if ($assessments = $workshop->get_assessments_by_reviewer($USER->id)) {
-        print_collapsible_region_start('', 'workshop-viewlet-assignedassessments', get_string('assignedassessments', 'workshop'));
-        $shownames = has_capability('mod/workshop:viewauthornames', $PAGE->context);
-        foreach ($assessments as $assessment) {
-            $submission                     = new stdclass();
-            $submission->id                 = $assessment->submissionid;
-            $submission->title              = $assessment->submissiontitle;
-            $submission->timecreated        = $assessment->submissioncreated;
-            $submission->timemodified       = $assessment->submissionmodified;
-            $userpicturefields = explode(',', user_picture::fields());
-            foreach ($userpicturefields as $userpicturefield) {
-                $prefixedusernamefield = 'author' . $userpicturefield;
-                $submission->$prefixedusernamefield = $assessment->$prefixedusernamefield;
-            }
-
-            if (is_null($assessment->grade)) {
-                $class = ' notgraded';
-                $submission->status = 'notgraded';
-                $buttontext = get_string('assess', 'workshop');
-            } else {
-                $class = ' graded';
-                $submission->status = 'graded';
-                $buttontext = get_string('reassess', 'workshop');
-            }
-            echo $output->box_start('generalbox assessment-summary' . $class);
-            echo $output->render($workshop->prepare_submission_summary($submission, $shownames));
-            echo $output->box_end();
-        }
-        print_collapsible_region_end();
-    }
     break;
-
 case workshop::PHASE_ASSESSMENT:
 
     $ownsubmissionexists = null;

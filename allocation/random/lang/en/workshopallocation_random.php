@@ -51,3 +51,7 @@ $string['resultnumperauthor'] = 'Trying to allocate {$a} review(s) per author';
 $string['resultnumperreviewer'] = 'Trying to allocate {$a} review(s) per reviewer';
 $string['removecurrentallocations'] = 'Remove current allocations';
 $string['stats'] = 'Current allocation statistics';
+$string['usegradinggrades'] = 'Use quality score for allocation';
+$string['usegradinggrades_help'] = 'If enabled, the random allocation method will automatically allocate submissions while taking into account quality scores. It will try to assign each submission a variety of quality scores.
+
+Recommended to only be used with at least 3 or more reviews per submission.';
