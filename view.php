@@ -146,6 +146,32 @@ case workshop::PHASE_SUBMISSION:
         print_collapsible_region_end();
     }
 
+    // Copy pasteroni starts here
+    if (has_capability('mod/workshop:viewallassessments', $PAGE->context)) {
+        $perpage = get_user_preferences('workshop_perpage', 10);
+        $groupid = groups_get_activity_group($workshop->cm, true);
+        $data = $workshop->prepare_grading_report_data($USER->id, $groupid, $page, $perpage, $sortby, $sorthow);
+        if ($data) {
+            $showauthornames    = has_capability('mod/workshop:viewauthornames', $workshop->context);
+            $showreviewernames  = has_capability('mod/workshop:viewreviewernames', $workshop->context);
+
+            if (has_capability('mod/workshop:overridegrades', $PAGE->context)) {
+                // Print a drop-down selector to change the current evaluation method.
+                $selector = new single_select($PAGE->url, 'eval', workshop::available_evaluators_list(),
+                    $workshop->evaluation, false, 'evaluationmethodchooser');
+                $selector->set_label(get_string('evaluationmethod', 'mod_workshop'));
+                $selector->set_help_icon('evaluationmethod', 'mod_workshop');
+                $selector->method = 'post';
+                echo $output->render($selector);
+                // load the grading evaluator
+                $evaluator = $workshop->grading_evaluation_instance();
+                $form = $evaluator->get_settings_form(new moodle_url($workshop->aggregate_url(),
+                        compact('sortby', 'sorthow', 'page')));
+                $form->display();
+            }
+        }
+    }
+
     // does the user have to assess examples before submitting their own work?
     $examplesmust = ($workshop->useexamples and $workshop->examplesmode == workshop::EXAMPLES_BEFORE_SUBMISSION);
 
@@ -250,7 +276,7 @@ case workshop::PHASE_SUBMISSION:
             $reportopts->sortby              = $sortby;
             $reportopts->sorthow             = $sorthow;
             $reportopts->showsubmissiongrade = false;
-            $reportopts->showgradinggrade    = false;
+            $reportopts->showgradinggrade    = true;
             $reportopts->workshopphase       = $workshop->phase;
 
             echo $output->render($pagingbar);
@@ -263,7 +289,6 @@ case workshop::PHASE_SUBMISSION:
         print_collapsible_region_end();
     }
     break;
-
 case workshop::PHASE_ASSESSMENT:
 
     $ownsubmissionexists = null;

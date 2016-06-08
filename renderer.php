@@ -431,7 +431,7 @@ class mod_workshop_renderer extends plugin_renderer_base {
         $table->head[] = $sortbysubmisstion;
 
         // If we are in submission phase ignore the following headers (columns).
-        if ($options->workshopphase != workshop::PHASE_SUBMISSION) {
+        //if ($options->workshopphase != workshop::PHASE_SUBMISSION) {
             $table->head[] = $this->helper_sortable_heading(get_string('receivedgrades', 'workshop'));
             if ($options->showsubmissiongrade) {
                 $table->head[] = $this->helper_sortable_heading(get_string('submissiongradeof', 'workshop', $data->maxgrade),
@@ -442,7 +442,7 @@ class mod_workshop_renderer extends plugin_renderer_base {
                 $table->head[] = $this->helper_sortable_heading(get_string('gradinggradeof', 'workshop', $data->maxgradinggrade),
                         'gradinggrade', $options->sortby, $options->sorthow);
             }
-        }
+        //}
         $table->rowclasses  = array();
         $table->colclasses  = array();
         $table->data        = array();
@@ -494,10 +494,10 @@ class mod_workshop_renderer extends plugin_renderer_base {
                 }
 
                 // If we are in submission phase ignore the following columns.
-                if ($options->workshopphase == workshop::PHASE_SUBMISSION) {
+                /*if ($options->workshopphase == workshop::PHASE_SUBMISSION) {
                     $table->data[] = $row;
                     continue;
-                }
+                }*/
 
                 // column #3 - received grades
                 if ($tr % $spanreceived == 0) {
