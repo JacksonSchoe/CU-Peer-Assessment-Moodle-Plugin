@@ -436,6 +436,7 @@ class workshop_random_allocator implements workshop_allocator {
      * @param array    $authors      structure of grouped authors
      * @param array    $reviewers    structure of grouped reviewers
      * @param array    $assessments  currently assigned assessments to be kept
+     * @param array    $gradinggradesraw structure of grading grades 
      * @param workshop_allocation_result $result allocation result logger
      * @param array    $options      allocation options
      * @return array                 array of (reviewerid => authorid) pairs
@@ -698,9 +699,9 @@ class workshop_random_allocator implements workshop_allocator {
      * used to select a group or user.
      *
      * @param array $workload [groupid] => (int)workload
+     * @param boolean $usegradinggrades  true if grading grades should be used for allocation
      * @param array $gradinggrades [id] => (int)gradinggrade
-     * @param array $gradinggrades [id] => (int)gradinggrade
-     * @param string $pattern [id] => (int)gradinggrade
+     * @param string $pattern  indicates whether to fetch a student with a high or low grading grade
      * @return mixed int|bool id of the selected element or false if it is impossible to choose
      */
     protected function get_element_with_lowest_workload($workload, $usegradinggrades, $gradinggrades, $pattern) {
@@ -718,10 +719,13 @@ class workshop_random_allocator implements workshop_allocator {
         }
         // If the id with the median grading grade needs to be fetched
         if ($pattern == 'MID') {
+            // Break the grading grades array into two blocks
             $gg_chunks = array_chunk($gradinggrades, count($gradinggrades)/2, true);
+            // Reverse the second chunk so that both are now sorted from highest to lowest
             $gg_chunks[0] = array_reverse($gg_chunks[0], true);
             echo "<BR>YOLO: <BR>Chunks: ";
             print_r($gg_chunks);
+            // Alternate fetching ids from each array until an id is found who is a potential reviewer
             while ($chunk1 = current($gg_chunks[0])) {
                 $chunk2 = current($gg_chunks[1]);
                 $key1 = key($gg_chunks[0]);
@@ -820,9 +824,9 @@ class workshop_random_allocator_setting {
     public $numper;
     /** @var bool prevent reviews by peers from the same group */
     public $excludesamegroup;
-    /** @var bool remove current allocations */
-    public $usegradinggrades;
     /** @var bool submissions are assigned peers with a range of grading grades instead of at random */
+    public $usegradinggrades;
+    /** @var bool remove current allocations */
     public $removecurrent;
     /** @var bool participants can assess without having submitted anything */
     public $assesswosubmission;
