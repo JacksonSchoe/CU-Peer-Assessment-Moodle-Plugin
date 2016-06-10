@@ -430,19 +430,18 @@ class mod_workshop_renderer extends plugin_renderer_base {
         $table->head[] = $sortbyname;
         $table->head[] = $sortbysubmisstion;
 
-        // If we are in submission phase ignore the following headers (columns).
-        //if ($options->workshopphase != workshop::PHASE_SUBMISSION) {
-            $table->head[] = $this->helper_sortable_heading(get_string('receivedgrades', 'workshop'));
-            if ($options->showsubmissiongrade) {
-                $table->head[] = $this->helper_sortable_heading(get_string('submissiongradeof', 'workshop', $data->maxgrade),
-                        'submissiongrade', $options->sortby, $options->sorthow);
-            }
-            $table->head[] = $this->helper_sortable_heading(get_string('givengrades', 'workshop'));
-            if ($options->showgradinggrade) {
-                $table->head[] = $this->helper_sortable_heading(get_string('gradinggradeof', 'workshop', $data->maxgradinggrade),
-                        'gradinggrade', $options->sortby, $options->sorthow);
-            }
-        //}
+        // Displays the following headers (columns).
+        $table->head[] = $this->helper_sortable_heading(get_string('receivedgrades', 'workshop'));
+        if ($options->showsubmissiongrade) {
+            $table->head[] = $this->helper_sortable_heading(get_string('submissiongradeof', 'workshop', $data->maxgrade),
+                    'submissiongrade', $options->sortby, $options->sorthow);
+        }
+        $table->head[] = $this->helper_sortable_heading(get_string('givengrades', 'workshop'));
+        if ($options->showgradinggrade) {
+            $table->head[] = $this->helper_sortable_heading(get_string('gradinggradeof', 'workshop', $data->maxgradinggrade),
+                    'gradinggrade', $options->sortby, $options->sorthow);
+        }
+
         $table->rowclasses  = array();
         $table->colclasses  = array();
         $table->data        = array();
@@ -492,12 +491,6 @@ class mod_workshop_renderer extends plugin_renderer_base {
                     $cell->attributes['class'] = 'submission';
                     $row->cells[] = $cell;
                 }
-
-                // If we are in submission phase ignore the following columns.
-                /*if ($options->workshopphase == workshop::PHASE_SUBMISSION) {
-                    $table->data[] = $row;
-                    continue;
-                }*/
 
                 // column #3 - received grades
                 if ($tr % $spanreceived == 0) {
@@ -692,6 +685,77 @@ class mod_workshop_renderer extends plugin_renderer_base {
     }
 
     /**
+     * Renders the full reference assessment
+     * Same as the above function, but hides the grade display
+     *
+     * @param workshop_assessment $assessment
+     * @return string HTML
+     */
+    protected function render_workshop_reference_assessment(workshop_assessment $assessment) {
+
+        $o = ''; // output HTML code
+        $anonymous = is_null($assessment->reviewer);
+        $classes = 'assessment-full';
+        if ($anonymous) {
+            $classes .= ' anonymous';
+        }
+
+        $o .= $this->output->container_start($classes);
+        $o .= $this->output->container_start('header');
+
+        if (!empty($assessment->title)) {
+            $title = s($assessment->title);
+        } else {
+            $title = get_string('assessment', 'workshop');
+        }
+        if (($assessment->url instanceof moodle_url) and ($this->page->url != $assessment->url)) {
+            $o .= $this->output->container(html_writer::link($assessment->url, $title), 'title');
+        } else {
+            $o .= $this->output->container($title, 'title');
+        }
+
+        if (!$anonymous) {
+            $reviewer   = $assessment->reviewer;
+            $userpic    = $this->output->user_picture($reviewer, array('courseid' => $this->page->course->id, 'size' => 32));
+
+            $userurl    = new moodle_url('/user/view.php',
+                                       array('id' => $reviewer->id, 'course' => $this->page->course->id));
+            $a          = new stdClass();
+            $a->name    = fullname($reviewer);
+            $a->url     = $userurl->out();
+            $byfullname = get_string('assessmentby', 'workshop', $a);
+            $oo         = $this->output->container($userpic, 'picture');
+            $oo        .= $this->output->container($byfullname, 'fullname');
+
+            $o .= $this->output->container($oo, 'reviewer');
+        }
+
+        $o .= $this->output->container_start('actions');
+        foreach ($assessment->actions as $action) {
+            $o .= $this->output->single_button($action->url, $action->label, $action->method);
+        }
+        $o .= $this->output->container_end(); // actions
+
+        $o .= $this->output->container_end(); // header
+
+        if (!is_null($assessment->form)) {
+            $o .= print_collapsible_region_start('assessment-form-wrapper', uniqid('workshop-assessment'),
+                    get_string('assessmentform', 'workshop'), '', false, true);
+            $o .= $this->output->container(self::moodleform($assessment->form), 'assessment-form');
+            $o .= "Your mail has arrived :DDD";
+            $o .= print_collapsible_region_end(true);
+
+            if (!$assessment->form->is_editable()) {
+                $o .= $this->overall_feedback($assessment);
+            }
+        }
+
+        $o .= $this->output->container_end(); // main wrapper
+
+        return $o;
+    }
+
+    /**
      * Renders the assessment of an example submission
      *
      * @param workshop_example_assessment $assessment
@@ -708,7 +772,7 @@ class mod_workshop_renderer extends plugin_renderer_base {
      * @return string HTML
      */
     protected function render_workshop_example_reference_assessment(workshop_example_reference_assessment $assessment) {
-        return $this->render_workshop_assessment($assessment);
+        return $this->render_workshop_reference_assessment($assessment);
     }
 
     /**
