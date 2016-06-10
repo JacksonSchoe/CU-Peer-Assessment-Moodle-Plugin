@@ -244,7 +244,12 @@ class workshop_accumulative_strategy implements workshop_strategy {
         $customdata['fields']   = $fields;
         $customdata['current']  = isset($current) ? $current : null;
         $attributes = array('class' => 'assessmentform accumulative');
-
+        // If this is the teacher's own assessment
+        if (isset($assessment->authorid)) {
+          if ($assessment->reviewerid == $assessment->authorid) {
+            return new workshop_accumulative_reference_assessment_form($actionurl, $customdata, 'post', '', $attributes, $editable);
+          }
+        }
         return new workshop_accumulative_assessment_form($actionurl, $customdata, 'post', '', $attributes, $editable);
     }
 

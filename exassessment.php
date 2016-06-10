@@ -48,6 +48,8 @@ $currenttab = 'assessment';
 $canmanage  = has_capability('mod/workshop:manageexamples', $workshop->context);
 $isreviewer = ($USER->id == $assessment->reviewerid);
 
+// 420420420blazeit blaze it
+            //redirect($workshop->excompare_url($example->id, $assessment->id));
 if ($isreviewer or $canmanage) {
     // such a user can continue
 } else {
@@ -66,7 +68,7 @@ $strategy = $workshop->grading_strategy_instance();
 
 // load the assessment form and process the submitted data eventually
 $mform = $strategy->get_assessment_form($PAGE->url, 'assessment', $assessment, $assessmenteditable);
-
+print_r($mform);
 // Set data managed by the workshop core, subplugins set their own data themselves.
 $currentdata = (object)array(
     'feedbackauthor' => $assessment->feedbackauthor,

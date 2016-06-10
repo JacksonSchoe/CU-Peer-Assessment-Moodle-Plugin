@@ -100,6 +100,7 @@ if ($isreviewer) {
     );
     $assessment = $workshop->prepare_example_assessment($assessment, $mformassessment, $options);
     $assessment->title = get_string('assessmentbyyourself', 'workshop');
+    // Reassess button
     if ($workshop->assessing_examples_allowed()) {
         $assessment->add_action(
             new moodle_url($workshop->exsubmission_url($example->id), array('assess' => 'on', 'sesskey' => sesskey())),

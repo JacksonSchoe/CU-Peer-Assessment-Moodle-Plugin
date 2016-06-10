@@ -25,7 +25,7 @@
  */
 
 $string['comparison'] = 'Comparison of assessments';
-$string['comparison_help'] = 'This setting specifies how strict the comparison of assessments should be. The stricter the comparison, the more similar the assessments need to be in order for a high grade to be obtained.';
+$string['comparison_help'] = 'This setting specifies how strict the quality score calculation should be. The stricter the setting, the more accurate the assessments need to be in order for a high quality score to be obtained.';
 $string['comparisonlevel1'] = 'very strict';
 $string['comparisonlevel3'] = 'strict';
 $string['comparisonlevel5'] = 'fair';
