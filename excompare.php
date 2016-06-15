@@ -28,6 +28,8 @@ require_once(dirname(__FILE__).'/locallib.php');
 $cmid   = required_param('cmid', PARAM_INT);    // course module id
 $sid    = required_param('sid', PARAM_INT);     // example submission id
 $aid    = required_param('aid', PARAM_INT);     // the user's assessment id
+$exas    = required_param('exas', PARAM_BOOL);  // if the 'example has already been assessed'
+                                                // error needs to be displayed
 
 $cm     = get_coursemodule_from_id('workshop', $cmid, 0, false, MUST_EXIST);
 $course = $DB->get_record('course', array('id' => $cm->course), '*', MUST_EXIST);
@@ -41,7 +43,7 @@ $workshop = $DB->get_record('workshop', array('id' => $cm->instance), '*', MUST_
 $workshop = new workshop($workshop, $cm, $course);
 $strategy = $workshop->grading_strategy_instance();
 
-$PAGE->set_url($workshop->excompare_url($sid, $aid));
+$PAGE->set_url($workshop->excompare_url($sid, $aid, $exas));
 
 $example    = $workshop->get_example_by_id($sid);
 $assessment = $workshop->get_assessment_by_id($aid);
@@ -73,6 +75,10 @@ $PAGE->navbar->add(get_string('examplecomparing', 'workshop'));
 $output = $PAGE->get_renderer('mod_workshop');
 echo $output->header();
 echo $output->heading(format_string($workshop->name));
+// If the error needs to be displayed
+if ($exas) {
+    echo $output->heading(get_string('alreadyassessed', 'workshop'), 4);
+}
 echo $output->heading(get_string('assessedexample', 'workshop'), 3);
 
 echo $output->render($workshop->prepare_example_submission($example));
@@ -100,12 +106,14 @@ if ($isreviewer) {
     );
     $assessment = $workshop->prepare_example_assessment($assessment, $mformassessment, $options);
     $assessment->title = get_string('assessmentbyyourself', 'workshop');
-    if ($workshop->assessing_examples_allowed()) {
+    // Uncomment the below code if you want a 'Re-assess' button to be visible to the student after
+    // grading the example submission and seeing the teacher's feedback
+    /*if ($workshop->assessing_examples_allowed()) {
         $assessment->add_action(
             new moodle_url($workshop->exsubmission_url($example->id), array('assess' => 'on', 'sesskey' => sesskey())),
             get_string('reassess', 'workshop')
         );
-    }
+    }*/
     echo $output->render($assessment);
 
 } elseif ($canmanage) {
