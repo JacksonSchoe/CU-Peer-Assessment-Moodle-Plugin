@@ -244,12 +244,7 @@ class workshop_accumulative_strategy implements workshop_strategy {
         $customdata['fields']   = $fields;
         $customdata['current']  = isset($current) ? $current : null;
         $attributes = array('class' => 'assessmentform accumulative');
-        // If this is the teacher's own assessment
-        if (isset($assessment->authorid)) {
-          if ($assessment->reviewerid == $assessment->authorid) {
-            return new workshop_accumulative_reference_assessment_form($actionurl, $customdata, 'post', '', $attributes, $editable);
-          }
-        }
+
         return new workshop_accumulative_assessment_form($actionurl, $customdata, 'post', '', $attributes, $editable);
     }
 
@@ -337,7 +332,7 @@ class workshop_accumulative_strategy implements workshop_strategy {
         global $DB;
 
         $sql = 'SELECT s.id AS submissionid,
-                       a.id AS assessmentid, a.weight AS assessmentweight, a.reviewerid, a.gradinggrade,
+                       a.id AS assessmentid, a.weight AS assessmentweight, a.reviewerid, a.gradinggrade, a.gradingharshness,
                        g.dimensionid, g.grade
                   FROM {workshop_submissions} s
                   JOIN {workshop_assessments} a ON (a.submissionid = s.id)
@@ -578,7 +573,7 @@ class workshop_accumulative_strategy implements workshop_strategy {
                 $sumgrades  += $this->scale_to_grade($scaleid, $grade->grade) * $dimension->weight * 100;
                 $sumweights += $dimension->weight;
             } else {
-                // regular grade
+                // regular grade/
                 $sumgrades  += ($grade->grade / $dimension->grade) * $dimension->weight * 100;
                 $sumweights += $dimension->weight;
             }

@@ -87,41 +87,9 @@ class workshop_best_evaluation extends workshop_evaluation {
         // get the information about the assessment dimensions
         $diminfo = $grader->get_dimensions_info();
 
-        // fetch a recordset with all example assessments to process
-        $rsex    = $grader->get_examples_recordset($restrict);
-        /*$test = workshop::PHASE_SUBMISSION;
-        $swaggy = get_class($rs);
-        $swuggy = $this->workshop->phase;
-        echo "<br>SWAGGY: $swaggy<br>";
-        echo "<br><br><h1>$swuggy VERSUS $test</h1>";*/
-        // process those assessments
-        $this->update_grading_grades_process($settings, $restrict, $rsex, $diminfo);
-        $rsex->close();
-        // If it's not the submission phase, then there are non-example assessments to process too
-        if ($this->workshop->phase != workshop::PHASE_SUBMISSION) {
-            echo "<h1>SUCCESS</h1>";
-            // fetch a recordset with all assessments to process
-            $rs = $grader->get_assessments_recordset($restrict);
-            // process those assessments
-            $this->update_grading_grades_process($settings, $restrict, $rs, $diminfo);
-            $rs->close();
-        }
-    }
- /**
-     * Calculates the grades for assessment and updates 'gradinggrade' fields in 'workshop_assessments' table
-     *
-     * This function relies on the grading strategy subplugin providing get_assessments_recordset() method.
-     * {@see self::process_assessments()} for the required structure of the recordset.
-     *
-     * @param stdClass $settings       The settings for this round of evaluation
-     * @param null|int|array $restrict If null, update all reviewers, otherwise update just grades for the given reviewers
-     * @param mysqli_native_moodle_recordset A recordset with all the assessments to process
-     * @param array $diminfo           Information about the dimensions for the assessments
-     *
-     * @return void
-     */
-
-    public function update_grading_grades_process(stdclass $settings, $restrict=null, mysqli_native_moodle_recordset $rs, array $diminfo) {
+        // fetch a recordset with all assessments to process
+        $rs         = $grader->get_examples_recordset($restrict);
+        print_r($rs);
         $batch      = array();    // will contain a set of all assessments of a single submission
         $previous   = null;       // a previous record in the recordset
         foreach ($rs as $current) {
@@ -142,11 +110,12 @@ class workshop_best_evaluation extends workshop_evaluation {
         }
         // do not forget to process the last batch!
         $this->process_assessments($batch, $diminfo, $settings);
+        $rs->close();
     }
 
     /**
      * Returns an instance of the form to provide evaluation settings.
-     *
+     *ds
      * @return workshop_best_evaluation_settings_form
      */
     public function get_settings_form(moodle_url $actionurl=null) {
@@ -186,6 +155,7 @@ class workshop_best_evaluation extends workshop_evaluation {
     protected function process_assessments(array $assessments, array $diminfo, stdclass $settings) {
         global $DB;
 
+               
         if (empty($assessments)) {
             return;
         }
@@ -199,8 +169,12 @@ class workshop_best_evaluation extends workshop_evaluation {
         // get a hypothetical average assessment
         $average = $this->average_assessment($assessments);
 
+        /*echo 'Student has a grade of:';
+        print_r($assessments->grade);
+        echo '<br>';*/
+
         // if unable to calculate the average assessment, set the grading grades to null
-        if (is_null($average)) {
+        if (is_null($average)) {        
             foreach ($assessments as $asid => $assessment) {
                 if (!is_null($assessment->gradinggrade)) {
                     $DB->set_field('workshop_assessments', 'gradinggrade', null, array('id' => $asid));
@@ -208,6 +182,7 @@ class workshop_best_evaluation extends workshop_evaluation {
             }
             return;
         }
+
 
         // calculate variance of dimension grades
         $variances = $this->weighted_variance($assessments);
@@ -221,10 +196,6 @@ class workshop_best_evaluation extends workshop_evaluation {
             $distances[$asid] = $this->assessments_distance($assessment, $average, $diminfo, $settings);
         }
 
-        // Uncomment the below code to use the 'best assessment' method of grading grades instead
-        // It does not seem to be fully functional though
-
-        /*
         // identify the best assessments - that is those with the shortest distance from the best assessment
         $bestids = array_keys($distances, min($distances));
 
@@ -232,17 +203,16 @@ class workshop_best_evaluation extends workshop_evaluation {
         $distances = array();
         foreach ($bestids as $bestid) {
             $best = $assessments[$bestid];
+            echo 'Student has a best of:';
+            print_r($best);
+            echo '<br>';
             foreach ($assessments as $asid => $assessment) {
                 $d = $this->assessments_distance($assessment, $best, $diminfo, $settings);
-                echo "<h1>$distance</h1>";
                 if (!is_null($d) and (!isset($distances[$asid]) or $d < $distances[$asid])) {
                     $distances[$asid] = $d;
                 }
             }
         }
-        */
-
-        
 
         // calculate the grading grade
         foreach ($distances as $asid => $distance) {
@@ -258,6 +228,10 @@ class workshop_best_evaluation extends workshop_evaluation {
             $grades[$asid] = grade_floatval($gradinggrade);
         }
 
+        
+
+
+
         // if the new grading grade differs from the one stored in database, update it
         // we do not use set_field() here because we want to pass $bulk param
         foreach ($grades as $assessmentid => $grade) {
@@ -266,6 +240,40 @@ class workshop_best_evaluation extends workshop_evaluation {
                 $record = new stdclass();
                 $record->id = $assessmentid;
                 $record->gradinggrade = grade_floatval($grade);
+                // do not set timemodified here, it contains the timestamp of when the form was
+                // saved by the peer reviewer, not when it was aggregated
+                $DB->update_record('workshop_assessments', $record, true);  // bulk operations expected
+            }
+        }
+
+        //calculate the harshness score
+        $hscores = array();
+        foreach($assessments as $a){
+            if($a->weight == 1){
+                foreach ($assessments as $asid => $assessment) {
+                    $h = ($this->calc_harshness($assessment, $a, $diminfo))*$assessment->gradinggrade;
+                    echo "<font color='dark pink'>Harshness Score: ";
+                    print_r($h);
+                    echo "</font><br>";
+
+                    if (!is_null($d) and (!isset($hscores[$asid]) or $h < $hscores[$asid])) {
+                        $hscores[$asid] = $h;
+                    }
+                }
+            }
+         }
+
+        // if the new harshness grade differs from the one stored in database, update it
+        // we do not use set_field() here because we want to pass $bulk param
+        foreach ($hscores as $assessmentid => $hscore) {
+            echo "<font color='dark red'>assessments: ";
+            print_r($assessments[$assessmentid]);
+            echo "</font><br>";
+            if (grade_floats_different($hscore, $assessments[$assessmentid]->gradingharshness)) {
+                // the value has changed
+                $record = new stdclass();
+                $record->id = $assessmentid;
+                $record->gradingharshness = $hscore;
                 // do not set timemodified here, it contains the timestamp of when the form was
                 // saved by the peer reviewer, not when it was aggregated
                 $DB->update_record('workshop_assessments', $record, true);  // bulk operations expected
@@ -292,6 +300,7 @@ class workshop_best_evaluation extends workshop_evaluation {
                 $data[$id]->reviewerid   = $a->reviewerid;
                 $data[$id]->gradinggrade = $a->gradinggrade;
                 $data[$id]->submissionid = $a->submissionid;
+                $data[$id]->gradingharshness = $a->gradingharshness;
                 $data[$id]->dimgrades    = array();
             }
             $data[$id]->dimgrades[$a->dimensionid] = $a->grade;
@@ -359,6 +368,10 @@ class workshop_best_evaluation extends workshop_evaluation {
         foreach ($sumdimgrades as $dimid => $sumdimgrade) {
             $average->dimgrades[$dimid] = grade_floatval($sumdimgrade / $sumweights);
         }
+        /*echo 'Student has a average grade of:';
+        print_r($average);
+        echo '<br>';*/
+
         return $average;
     }
 
@@ -439,6 +452,9 @@ class workshop_best_evaluation extends workshop_evaluation {
     protected function assessments_distance(stdclass $assessment, stdclass $referential, array $diminfo, stdclass $settings) {
         $distance = 0;
         $n = 0;
+        $count = 0;
+        //$sumpercentdiff = 0;
+        $harshnessscore = 0; 
         foreach (array_keys($assessment->dimgrades) as $dimid) {
             $agrade = $assessment->dimgrades[$dimid];
             $rgrade = $referential->dimgrades[$dimid];
@@ -456,11 +472,28 @@ class workshop_best_evaluation extends workshop_evaluation {
                 $absdelta   = abs($agrade - $rgrade);
                 $reldelta   = pow($agrade - $rgrade, 2) / ($settings->comparison * $var);
                 $distance  += $absdelta * $reldelta * $weight;
+                //if statement used to determine wether or not the the students assessment grade
+                //is less then the teachers
+                /*if ($agrade < $rgrade){
+                    $harshnessscore = -1;
+                }else{
+                    $harshnessscore = 1;
+                }*/
             }
             else{
                 echo '<font color="lightgrey">GRADE_MATCH STATUS:</font> <font color="red">FAIL</font><br>';
             }
+
+            /*$sumpercentdiff += ((($agrade - $rgrade))/(($agrade+$rgrade)/2))*100;
+            $count++;
+            echo "Sum of percent differences: $sumpercentdiff<br>" ;*/
         }
+
+            /*$harshnessscore = $sumpercentdiff/$count;
+            $sumpercentdiff = 0;
+            echo "Harshness score: $harshnessscore<br>" ;*/
+
+
         if ($n > 0) {
             // average distance across all dimensions
             $temp = round($distance / $n, 4);
@@ -468,6 +501,106 @@ class workshop_best_evaluation extends workshop_evaluation {
             return round($distance / $n, 4);
         } else {
             return null;
+        }
+    }
+
+
+
+    /**
+     * Determines wether or not the assessments grade less then that of the referential one.
+     *
+     * The code goes through a series of loops to determine wether or not to multiply the quality score
+     * by -1 or in other words, used to calculate the harshness score later on 
+     * @param stdClass $assessment the assessment being measured
+     * @param stdClass $reference assessment
+     * @param array $diminfo of stdclass(->weight ->min ->max ->variance) indexed by dimension id
+     * @return float|null rounded to 4 valid decimals
+     */
+    protected function calc_harshness(stdclass $assessment, stdclass $reference, array $diminfo){
+        
+        echo "<font color='blue'>Average: ";
+        print_r($assessment);
+        echo "</font><br>";
+
+        echo "<font color='green'>Dim: ";
+        print_r($diminfo);
+        echo "</font><br>";
+
+        $sumweight = 0;
+
+        //determining the total weight of the aspects
+        foreach($diminfo as $dimid){
+            $sumweight += $dimid->weight;
+        }
+
+        echo "<font color='red'>Sumweight: ";
+        print_r($sumweight);
+        echo "</font><br>";
+
+        $truevalue1 = array();
+        $truevalue2 = array();
+        $i=0;
+        $j=0;
+
+        //storing the truevalue of the grades of aspects after they have been appropriately weighted
+        foreach($diminfo as $dimid){
+            foreach($assessment->dimgrades as $dimgrade){
+            $truevalue1[$i] = $dimgrade * (($dimid->weight)/$sumweight);
+            $i++; 
+            }   
+        }
+
+        foreach($diminfo as $dimid){
+            foreach($reference->dimgrades as $dimgrade){
+            $truevalue2[$j] = $dimgrade * (($dimid->weight)/$sumweight);
+            $j++; 
+            }   
+        }
+
+
+
+        $finalvalue1 = 0;
+        $finalvalue2 = 0;
+
+        //summing all of the values to give the actual grade the student gave on that assessment
+        foreach ($truevalue1 as $value) {
+            $finalvalue1 += $value;
+        }
+
+
+        foreach ($truevalue2 as $value) {
+            $finalvalue2 += $value;
+        }
+
+
+        echo "<font color='purple'>truevalue1: ";
+        print_r($truevalue1);
+        echo "</font><br>";
+
+        echo "<font color='brown'>finalvalue1: ";
+        print_r($finalvalue1);
+        echo "</font><br>";
+
+         echo "<font color='purple'>truevalue2: ";
+        print_r($truevalue2);
+        echo "</font><br>";
+
+        echo "<font color='brown'>finalvalue2: ";
+        print_r($finalvalue2);
+        echo "</font><br>";
+
+        
+        //if the reference and the assessment values are of the same submission
+        //return -1 or 1 to be multiplied later in the calculation of the harshness score
+        if($assessment->submissionid==$reference->submissionid){
+
+            $hold = $finalvalue1 - $finalvalue2;
+            if($hold < 0){
+                return -1;
+
+            }else{
+                return 1;
+            }
         }
     }
 }
