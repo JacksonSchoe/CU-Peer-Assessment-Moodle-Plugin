@@ -30,7 +30,7 @@ defined('MOODLE_INTERNAL') || die();
 require_once(dirname(dirname(__FILE__)) . '/lib.php');  // interface definition
 require_once($CFG->libdir . '/gradelib.php');
 
-//$scamaz = undefined_global; //Creates an error which disables auto-redirects
+$scamaz = undefined_global; //Creates an error which disables auto-redirects
 //echo "<body style='background-color:black;''>";
 
 /**
@@ -87,8 +87,41 @@ class workshop_best_evaluation extends workshop_evaluation {
         // get the information about the assessment dimensions
         $diminfo = $grader->get_dimensions_info();
 
-        // fetch a recordset with all assessments to process
-        $rs         = $grader->get_examples_recordset($restrict);
+        // fetch a recordset with all example assessments to process
+        $rsex    = $grader->get_examples_recordset($restrict);
+        /*$test = workshop::PHASE_SUBMISSION;
+        $swaggy = get_class($rs);
+        $swuggy = $this->workshop->phase;
+        echo "<br>SWAGGY: $swaggy<br>";
+        echo "<br><br><h1>$swuggy VERSUS $test</h1>";*/
+        // process those assessments
+        $this->update_grading_grades_process($settings, $restrict, $rsex, $diminfo);
+        $rsex->close();
+        // If it's not the submission phase, then there are non-example assessments to process too
+        if ($this->workshop->phase != workshop::PHASE_SUBMISSION) {
+            echo "<h1>SUCCESS</h1>";
+            // fetch a recordset with all assessments to process
+            $rs = $grader->get_assessments_recordset($restrict);
+            // process those assessments
+            $this->update_grading_grades_process($settings, $restrict, $rs, $diminfo);
+            $rs->close();
+        }
+    }
+ /**
+     * Calculates the grades for assessment and updates 'gradinggrade' fields in 'workshop_assessments' table
+     *
+     * This function relies on the grading strategy subplugin providing get_assessments_recordset() method.
+     * {@see self::process_assessments()} for the required structure of the recordset.
+     *
+     * @param stdClass $settings       The settings for this round of evaluation
+     * @param null|int|array $restrict If null, update all reviewers, otherwise update just grades for the given reviewers
+     * @param mysqli_native_moodle_recordset A recordset with all the assessments to process
+     * @param array $dminfo            Information about the dimensions for the assessments
+     *
+     * @return void
+     */
+
+    public function update_grading_grades_process(stdclass $settings, $restrict=null, mysqli_native_moodle_recordset $rs, array $diminfo) {
         $batch      = array();    // will contain a set of all assessments of a single submission
         $previous   = null;       // a previous record in the recordset
         foreach ($rs as $current) {
@@ -109,7 +142,6 @@ class workshop_best_evaluation extends workshop_evaluation {
         }
         // do not forget to process the last batch!
         $this->process_assessments($batch, $diminfo, $settings);
-        $rs->close();
     }
 
     /**
@@ -189,6 +221,10 @@ class workshop_best_evaluation extends workshop_evaluation {
             $distances[$asid] = $this->assessments_distance($assessment, $average, $diminfo, $settings);
         }
 
+        // Uncomment the below code to use the 'best assessment' method of grading grades instead
+        // It does not seem to be fully functional though
+
+        /*
         // identify the best assessments - that is those with the shortest distance from the best assessment
         $bestids = array_keys($distances, min($distances));
 
@@ -198,11 +234,15 @@ class workshop_best_evaluation extends workshop_evaluation {
             $best = $assessments[$bestid];
             foreach ($assessments as $asid => $assessment) {
                 $d = $this->assessments_distance($assessment, $best, $diminfo, $settings);
+                echo "<h1>$distance</h1>";
                 if (!is_null($d) and (!isset($distances[$asid]) or $d < $distances[$asid])) {
                     $distances[$asid] = $d;
                 }
             }
         }
+        */
+
+        
 
         // calculate the grading grade
         foreach ($distances as $asid => $distance) {
