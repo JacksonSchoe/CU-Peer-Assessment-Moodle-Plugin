@@ -116,7 +116,7 @@ class workshop_best_evaluation extends workshop_evaluation {
      * @param stdClass $settings       The settings for this round of evaluation
      * @param null|int|array $restrict If null, update all reviewers, otherwise update just grades for the given reviewers
      * @param mysqli_native_moodle_recordset A recordset with all the assessments to process
-     * @param array $dminfo            Information about the dimensions for the assessments
+     * @param array $diminfo           Information about the dimensions for the assessments
      *
      * @return void
      */

@@ -40,10 +40,17 @@ abstract class workshop_evaluation {
     abstract public function update_grading_grades(stdClass $settings, $restrict=null);
 
     /**
-     * Calculates grades for assessment and updates 'gradinggrade' fields in 'workshop_assessments' table
+     * Calculates the grades for assessment and updates 'gradinggrade' fields in 'workshop_assessments' table
      *
-     * @param stdClass $settings settings for this round of evaluation
-     * @param null|int|array $restrict if null, update all reviewers, otherwise update just grades for the given reviewers(s)
+     * This function relies on the grading strategy subplugin providing get_assessments_recordset() method.
+     * {@see self::process_assessments()} for the required structure of the recordset.
+     *
+     * @param stdClass $settings       The settings for this round of evaluation
+     * @param null|int|array $restrict If null, update all reviewers, otherwise update just grades for the given reviewers
+     * @param mysqli_native_moodle_recordset A recordset with all the assessments to process
+     * @param array $diminfo           Information about the dimensions for the assessments
+     *
+     * @return void
      */
     abstract public function update_grading_grades_process(stdClass $settings, $restrict=null, mysqli_native_moodle_recordset $rs, array $diminfo);
 
