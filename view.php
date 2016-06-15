@@ -146,7 +146,7 @@ case workshop::PHASE_SUBMISSION:
         print_collapsible_region_end();
     }
 
-    // Copy pasteroni starts here
+    // Displays all students, their grading grades, and their assessments to the teacher
     if (has_capability('mod/workshop:viewallassessments', $PAGE->context)) {
         $perpage = get_user_preferences('workshop_perpage', 10);
         $groupid = groups_get_activity_group($workshop->cm, true);
@@ -157,7 +157,8 @@ case workshop::PHASE_SUBMISSION:
 
             if (has_capability('mod/workshop:overridegrades', $PAGE->context)) {
                 // Print a drop-down selector to change the current evaluation method.
-                $selector = new single_select($PAGE->url, 'eval', workshop::available_evaluators_list(),
+                // Uncomment the below code if you want to have multiple evaluation methods
+                /* $selector = new single_select($PAGE->url, 'eval', workshop::available_evaluators_list(),
                     $workshop->evaluation, false, 'evaluationmethodchooser');
                 $selector->set_label(get_string('evaluationmethod', 'mod_workshop'));
                 $selector->set_help_icon('evaluationmethod', 'mod_workshop');
@@ -167,7 +168,7 @@ case workshop::PHASE_SUBMISSION:
                 $evaluator = $workshop->grading_evaluation_instance();
                 $form = $evaluator->get_settings_form(new moodle_url($workshop->aggregate_url(),
                         compact('sortby', 'sorthow', 'page')));
-                $form->display();
+                $form->display(); */
             }
         }
     }
@@ -460,7 +461,8 @@ case workshop::PHASE_EVALUATION:
 
             if (has_capability('mod/workshop:overridegrades', $PAGE->context)) {
                 // Print a drop-down selector to change the current evaluation method.
-                $selector = new single_select($PAGE->url, 'eval', workshop::available_evaluators_list(),
+                // Uncomment the below code if you want to have multiple evaluation methods
+                /* $selector = new single_select($PAGE->url, 'eval', workshop::available_evaluators_list(),
                     $workshop->evaluation, false, 'evaluationmethodchooser');
                 $selector->set_label(get_string('evaluationmethod', 'mod_workshop'));
                 $selector->set_help_icon('evaluationmethod', 'mod_workshop');
@@ -470,7 +472,7 @@ case workshop::PHASE_EVALUATION:
                 $evaluator = $workshop->grading_evaluation_instance();
                 $form = $evaluator->get_settings_form(new moodle_url($workshop->aggregate_url(),
                         compact('sortby', 'sorthow', 'page')));
-                $form->display();
+                $form->display(); */
             }
 
             // prepare paging bar

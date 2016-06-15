@@ -1628,11 +1628,12 @@ class workshop {
     /**
      * @param int $sid submission id
      * @param int $aid assessment id
+     * @param bool $exas if the 'example has already been assessed' error needs to be displayed
      * @return moodle_url of the page to compare the reference assessments of the given example submission
      */
-    public function excompare_url($sid, $aid) {
+    public function excompare_url($sid, $aid, $exas) {
         global $CFG;
-        return new moodle_url('/mod/workshop/excompare.php', array('cmid' => $this->cm->id, 'sid' => $sid, 'aid' => $aid));
+        return new moodle_url('/mod/workshop/excompare.php', array('cmid' => $this->cm->id, 'sid' => $sid, 'aid' => $aid, 'exas' => $exas));
     }
 
     /**
@@ -2255,7 +2256,7 @@ class workshop {
 
         // fetch a recordset with all assessments to process
         $sql = 'SELECT s.id AS submissionid, s.grade AS submissiongrade,
-                       a.weight, a.grade
+                       a.weight, a.grade, a.reviewerid
                   FROM {workshop_submissions} s
              LEFT JOIN {workshop_assessments} a ON (a.submissionid = s.id)
                  WHERE s.example=0 AND s.workshopid=:workshopid'; // to be cont.
@@ -2273,9 +2274,11 @@ class workshop {
 
         $sql .= ' ORDER BY s.id'; // this is important for bulk processing
 
-        $rs         = $DB->get_recordset_sql($sql, $params);
-        $batch      = array();    // will contain a set of all assessments of a single submission
-        $previous   = null;       // a previous record in the recordset
+
+        $gradinggrades  = $this->get_all_grading_grades();
+        $rs             = $DB->get_recordset_sql($sql, $params);
+        $batch          = array();    // will contain a set of all assessments of a single submission
+        $previous       = null;       // a previous record in the recordset
 
         foreach ($rs as $current) {
             if (is_null($previous)) {
@@ -2286,15 +2289,15 @@ class workshop {
                 // we are still processing the current submission
                 $batch[] = $current;
             } else {
-                // process all the assessments of a sigle submission
-                $this->aggregate_submission_grades_process($batch);
+                // process all the assessments of a single submission
+                $this->aggregate_submission_grades_process($batch, $gradinggrades);
                 // and then start to process another submission
                 $batch      = array($current);
                 $previous   = $current;
             }
         }
         // do not forget to process the last batch!
-        $this->aggregate_submission_grades_process($batch);
+        $this->aggregate_submission_grades_process($batch, $gradinggrades);
         $rs->close();
     }
 
@@ -2341,7 +2344,7 @@ class workshop {
                   FROM {workshop_assessments} a
             INNER JOIN {workshop_submissions} s ON (a.submissionid = s.id)
              LEFT JOIN {workshop_aggregations} ag ON (ag.userid = a.reviewerid AND ag.workshopid = s.workshopid)
-                 WHERE s.example=1 AND s.workshopid=:workshopid'; // to be cont.
+                 WHERE s.workshopid=:workshopid'; // to be cont.
         $params = array('workshopid' => $this->id);
 
         if (is_null($restrict)) {
@@ -2655,7 +2658,7 @@ class workshop {
      * @param array $assessments of stdclass(->submissionid ->submissiongrade ->gradeover ->weight ->grade)
      * @return void
      */
-    protected function aggregate_submission_grades_process(array $assessments) {
+    protected function aggregate_submission_grades_process(array $assessments, array $gradinggradesraw) {
         global $DB;
 
         $submissionid   = null; // the id of the submission being processed
@@ -2663,6 +2666,31 @@ class workshop {
         $finalgrade     = null; // the new grade to be calculated
         $sumgrades      = 0;
         $sumweights     = 0;
+
+
+        echo "<br><br>Assessments:  ";
+        print_r($assessments);
+        $gradinggradesid = array(array(), array());
+        foreach ($gradinggradesraw as $gradinggrades) {
+            foreach ($assessments as $assessment) {
+                if ($assessment->reviewerid == $gradinggrades->reviewerid) {
+                    // If a grade was already added to the array for this id
+                    if (isset($gradinggradesid[1][$assessment->reviewerid])) {
+                        $gradinggradesid[0][$assessment->reviewerid] += $gradinggrades->gradinggrade; // Add the grading grade
+                        $gradinggradesid[1][$assessment->reviewerid] ++; // Increment the grade count
+                    } else { // For the first grade to be added to the array for each id, += can't be used
+                        $gradinggradesid[0][$assessment->reviewerid] = $gradinggrades->gradinggrade;
+                        $gradinggradesid[1][$assessment->reviewerid] = 1;
+                    }
+                }
+            }
+        }
+        foreach ($gradinggradesid[0] as $gradingkey => $gradingvalue) {
+            // Average the grading grades of one person
+            $gradinggradesid[0][$gradingkey] /= $gradinggradesid[1][$gradingkey];
+        }
+        echo 'gradinggradesid[0]: <BR>';
+        print_r($gradinggradesid[0]);
 
         foreach ($assessments as $assessment) {
             if (is_null($submissionid)) {
@@ -2681,8 +2709,8 @@ class workshop {
                 // this does not influence the calculation
                 continue;
             }
-            $sumgrades  += $assessment->grade * $assessment->weight;
-            $sumweights += $assessment->weight;
+            $sumgrades  += $assessment->grade * $gradinggradesid[0][$assessment->reviewerid];
+            $sumweights += $gradinggradesid[0][$assessment->reviewerid];
         }
         if ($sumweights > 0 and is_null($finalgrade)) {
             $finalgrade = grade_floatval($sumgrades / $sumweights);

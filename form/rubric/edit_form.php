@@ -34,7 +34,7 @@ require_once(dirname(dirname(__FILE__)).'/edit_form.php');    // parent class de
  */
 class workshop_edit_rubric_strategy_form extends workshop_edit_strategy_form {
 
-    const MINLEVELS = 4;
+    const MINLEVELS = 5;
     const ADDLEVELS = 2;
 
     /**
@@ -57,7 +57,7 @@ class workshop_edit_rubric_strategy_form extends workshop_edit_strategy_form {
 
         $levelgrades = array();
         for ($i = 100; $i >= 0; $i--) {
-            $levelgrades[$i] = $i;
+            $levelgrades[$i] = $i+1;
         }
 
         for ($i = 0; $i < $norepeats; $i++) {

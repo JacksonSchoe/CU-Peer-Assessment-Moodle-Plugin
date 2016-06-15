@@ -48,6 +48,12 @@ $currenttab = 'assessment';
 $canmanage  = has_capability('mod/workshop:manageexamples', $workshop->context);
 $isreviewer = ($USER->id == $assessment->reviewerid);
 
+// The below check exists to prevent students from re-assessing examples
+if (!is_null($assessment->grade) && !$canmanage) {
+    // Redirect them directly to the compare page
+    redirect($workshop->excompare_url($example->id, $assessment->id, true));
+}
+
 if ($isreviewer or $canmanage) {
     // such a user can continue
 } else {
@@ -66,7 +72,6 @@ $strategy = $workshop->grading_strategy_instance();
 
 // load the assessment form and process the submitted data eventually
 $mform = $strategy->get_assessment_form($PAGE->url, 'assessment', $assessment, $assessmenteditable);
-
 // Set data managed by the workshop core, subplugins set their own data themselves.
 $currentdata = (object)array(
     'feedbackauthor' => $assessment->feedbackauthor,
@@ -121,7 +126,7 @@ if ($mform->is_cancelled()) {
         if ($canmanage) {
             redirect($workshop->view_url());
         } else {
-            redirect($workshop->excompare_url($example->id, $assessment->id));
+            redirect($workshop->excompare_url($example->id, $assessment->id, false));
         }
     } else {
         // either it is not possible to calculate the $rawgrade
@@ -160,6 +165,7 @@ if ($canmanage and $assessment->weight == 1) {
     );
     $assessment = $workshop->prepare_example_reference_assessment($assessment, $mform, $options);
     $assessment->title = get_string('assessmentreference', 'workshop');
+    $assessment->displayRubric = true;
     echo $output->render($assessment);
 
 } else if ($isreviewer) {
