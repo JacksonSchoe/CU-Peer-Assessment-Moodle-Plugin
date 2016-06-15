@@ -146,7 +146,7 @@ case workshop::PHASE_SUBMISSION:
         print_collapsible_region_end();
     }
 
-    // Copy pasteroni starts here
+    // Displays all students, their grading grades, and their assessments to the teacher
     if (has_capability('mod/workshop:viewallassessments', $PAGE->context)) {
         $perpage = get_user_preferences('workshop_perpage', 10);
         $groupid = groups_get_activity_group($workshop->cm, true);
