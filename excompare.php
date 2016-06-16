@@ -75,7 +75,7 @@ $PAGE->navbar->add(get_string('examplecomparing', 'workshop'));
 $output = $PAGE->get_renderer('mod_workshop');
 echo $output->header();
 echo $output->heading(format_string($workshop->name));
-// If the error needs to be displayed
+// If the notice needs to be displayed
 if ($exas) {
     echo $output->heading(get_string('alreadyassessed', 'workshop'), 4);
 }

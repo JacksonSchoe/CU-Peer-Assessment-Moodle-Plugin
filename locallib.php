@@ -1245,6 +1245,32 @@ class workshop {
     }
 
     /**
+     * Returns the list of all harshness scores in the workshop with some data added
+     *
+     * Fetches data from {workshop_assessments} and adds some useful information from other
+     * tables. The returned object does not contain textual fields (i.e. comments) to prevent memory
+     * lack issues.
+     *
+     * @return array [assessmentid] => assessment stdclass
+     */
+    public function get_all_harshness_scores() {
+        global $DB;
+
+        $reviewerfields = user_picture::fields('reviewer', null, 'revieweridx', 'reviewer');
+        list($sort, $params) = users_order_by_sql('reviewer');
+        $sql = "SELECT a.id, a.submissionid, a.reviewerid, a.gradingharshness,
+                       $reviewerfields, s.title
+                  FROM {workshop_assessments} a
+            INNER JOIN {user} reviewer ON (a.reviewerid = reviewer.id)
+            INNER JOIN {workshop_submissions} s ON (a.submissionid = s.id)
+                 WHERE s.workshopid = :workshopid AND s.example = 1
+              ORDER BY $sort";
+        $params['workshopid'] = $this->id;
+
+        return $DB->get_records_sql($sql, $params);
+    }
+
+    /**
      * Get the complete information about the given assessment
      *
      * @param int $id Assessment ID
@@ -2655,7 +2681,8 @@ class workshop {
      * This calculates the weighted mean of the passed assessment grades. If, however, the submission grade
      * was overridden by a teacher, the gradeover value is returned and the rest of grades are ignored.
      *
-     * @param array $assessments of stdclass(->submissionid ->submissiongrade ->gradeover ->weight ->grade)
+     * @param array $assessments       of stdclass(->submissionid ->submissiongrade ->gradeover ->weight ->grade)
+     * @param array $gradinggradesraw  holds the grading grades fetched from the database
      * @return void
      */
     protected function aggregate_submission_grades_process(array $assessments, array $gradinggradesraw) {
@@ -2667,9 +2694,6 @@ class workshop {
         $sumgrades      = 0;
         $sumweights     = 0;
 
-
-        echo "<br><br>Assessments:  ";
-        print_r($assessments);
         $gradinggradesid = array(array(), array());
         foreach ($gradinggradesraw as $gradinggrades) {
             foreach ($assessments as $assessment) {
@@ -2689,8 +2713,6 @@ class workshop {
             // Average the grading grades of one person
             $gradinggradesid[0][$gradingkey] /= $gradinggradesid[1][$gradingkey];
         }
-        echo 'gradinggradesid[0]: <BR>';
-        print_r($gradinggradesid[0]);
 
         foreach ($assessments as $assessment) {
             if (is_null($submissionid)) {
