@@ -30,7 +30,7 @@ defined('MOODLE_INTERNAL') || die();
 require_once(dirname(dirname(__FILE__)) . '/lib.php');  // interface definition
 require_once($CFG->libdir . '/gradelib.php');
 
-$scamaz = undefined_global; //Creates an error which disables auto-redirects
+//$scamaz = undefined_global; //Creates an error which disables auto-redirects
 //echo "<body style='background-color:black;''>";
 
 /**
@@ -89,6 +89,7 @@ class workshop_best_evaluation extends workshop_evaluation {
 
         // fetch a recordset with all example assessments to process
         $rsex    = $grader->get_examples_recordset($restrict);
+        print_r($rsex);
         /*$test = workshop::PHASE_SUBMISSION;
         $swaggy = get_class($rs);
         $swuggy = $this->workshop->phase;
@@ -272,6 +273,46 @@ class workshop_best_evaluation extends workshop_evaluation {
             }
         }
 
+
+        //calculate the harshness score
+        $hscores = array();
+        foreach($assessments as $a){
+            if($a->weight == 1){
+                foreach ($assessments as $asid => $assessment) {
+
+                    if($this->calc_harshness($assessment, $a, $diminfo)==-1){
+                        $h = -100 - (($this->calc_harshness($assessment, $a, $diminfo))*$assessment->gradinggrade);
+                    }else{
+                        $h = 100-(($this->calc_harshness($assessment, $a, $diminfo))*$assessment->gradinggrade);
+                    }
+                    echo "<font color='dark pink'>Harshness Score: ";
+                    print_r($h);
+                    echo "</font><br>";
+
+                    if (!is_null($h) and (!isset($hscores[$asid]) or $h < $hscores[$asid])) {
+                        $hscores[$asid] = $h;
+                    }
+                }
+            }
+         }
+
+        // if the new harshness grade differs from the one stored in database, update it
+        // we do not use set_field() here because we want to pass $bulk param
+        foreach ($hscores as $assessmentid => $hscore) {
+            echo "<font color='dark red'>assessments: ";
+            print_r($assessments[$assessmentid]);
+            echo "</font><br>";
+            if (grade_floats_different($hscore, $assessments[$assessmentid]->gradingharshness)) {
+                // the value has changed
+                $record = new stdclass();
+                $record->id = $assessmentid;
+                $record->gradingharshness = $hscore;
+                // do not set timemodified here, it contains the timestamp of when the form was
+                // saved by the peer reviewer, not when it was aggregated
+                $DB->update_record('workshop_assessments', $record, true);  // bulk operations expected
+            }
+        }
+
         // done. easy, heh? ;-)
     }
 
@@ -287,12 +328,13 @@ class workshop_best_evaluation extends workshop_evaluation {
             $id = $a->assessmentid; // just an abbreviation
             if (!isset($data[$id])) {
                 $data[$id] = new stdclass();
-                $data[$id]->assessmentid = $a->assessmentid;
-                $data[$id]->weight       = $a->assessmentweight;
-                $data[$id]->reviewerid   = $a->reviewerid;
-                $data[$id]->gradinggrade = $a->gradinggrade;
-                $data[$id]->submissionid = $a->submissionid;
-                $data[$id]->dimgrades    = array();
+                $data[$id]->assessmentid     = $a->assessmentid;
+                $data[$id]->weight           = $a->assessmentweight;
+                $data[$id]->reviewerid       = $a->reviewerid;
+                $data[$id]->gradinggrade     = $a->gradinggrade;
+                $data[$id]->submissionid     = $a->submissionid;
+                $data[$id]->gradingharshness = $a->gradingharshness;
+                $data[$id]->dimgrades        = array();
             }
             $data[$id]->dimgrades[$a->dimensionid] = $a->grade;
         }
@@ -468,6 +510,103 @@ class workshop_best_evaluation extends workshop_evaluation {
             return round($distance / $n, 4);
         } else {
             return null;
+        }
+    }
+    /**
+     * Determines wether or not the assessments grade less then that of the referential one.
+     *
+     * The code goes through a series of loops to determine wether or not to multiply the quality score
+     * by -1 or in other words, used to calculate the harshness score later on 
+     * @param stdClass $assessment the assessment being measured
+     * @param stdClass $reference assessment
+     * @param array $diminfo of stdclass(->weight ->min ->max ->variance) indexed by dimension id
+     * @return float|null rounded to 4 valid decimals
+     */
+    protected function calc_harshness(stdclass $assessment, stdclass $reference, array $diminfo){
+        
+        echo "<font color='blue'>Average: ";
+        print_r($assessment);
+        echo "</font><br>";
+
+        echo "<font color='green'>Dim: ";
+        print_r($diminfo);
+        echo "</font><br>";
+
+        $sumweight = 0;
+
+        //determining the total weight of the aspects
+        foreach($diminfo as $dimid){
+            $sumweight += $dimid->weight;
+        }
+
+        echo "<font color='red'>Sumweight: ";
+        print_r($sumweight);
+        echo "</font><br>";
+
+        $truevalue1 = array();
+        $truevalue2 = array();
+        $i=0;
+        $j=0;
+
+        //storing the truevalue of the grades of aspects after they have been appropriately weighted
+        foreach($diminfo as $dimid){
+            foreach($assessment->dimgrades as $dimgrade){
+            $truevalue1[$i] = $dimgrade * (($dimid->weight)/$sumweight);
+            $i++; 
+            }   
+        }
+
+        foreach($diminfo as $dimid){
+            foreach($reference->dimgrades as $dimgrade){
+            $truevalue2[$j] = $dimgrade * (($dimid->weight)/$sumweight);
+            $j++; 
+            }   
+        }
+
+
+
+        $finalvalue1 = 0;
+        $finalvalue2 = 0;
+
+        //summing all of the values to give the actual grade the student gave on that assessment
+        foreach ($truevalue1 as $value) {
+            $finalvalue1 += $value;
+        }
+
+
+        foreach ($truevalue2 as $value) {
+            $finalvalue2 += $value;
+        }
+
+
+        echo "<font color='purple'>truevalue1: ";
+        print_r($truevalue1);
+        echo "</font><br>";
+
+        echo "<font color='brown'>finalvalue1: ";
+        print_r($finalvalue1);
+        echo "</font><br>";
+
+         echo "<font color='purple'>truevalue2: ";
+        print_r($truevalue2);
+        echo "</font><br>";
+
+        echo "<font color='brown'>finalvalue2: ";
+        print_r($finalvalue2);
+        echo "</font><br>";
+
+        
+        //if the reference and the assessment values are of the same submission
+        //return -1 or 1 to be multiplied later in the calculation of the harshness score
+        if($assessment->submissionid==$reference->submissionid){
+
+            $hold = $finalvalue1 - $finalvalue2;
+            if($hold < 0){
+                return -1;
+
+            }else{
+                return 1;
+            }
         }
     }
 }
